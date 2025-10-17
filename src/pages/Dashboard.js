@@ -1,4 +1,4 @@
-import { Bell, Settings, AlertTriangle, TrendingUp, Clock, Target, DollarSign, Gauge } from "lucide-react";
+import {AlertTriangle, TrendingUp, Clock, Target, DollarSign, Gauge } from "lucide-react";
 import { StatCard } from "../components/StatCard";
 import { 
   statsData, 
@@ -32,10 +32,8 @@ const Dashboard = () => {
           <h1 className="text-3xl font-bold text-foreground pt-7 pl-7">Dashboard</h1>
           <div className="flex items-center gap-4">
             <button className="p-2 hover:bg-muted/40 rounded-full transition-colors">
-              <Bell className="w-5 h-5 text-muted-foreground" />
             </button>
             <button className="p-2 hover:bg-muted/40 rounded-full transition-colors">
-              <Settings className="w-5 h-5 text-muted-foreground" />
             </button>
           </div>
         </div>

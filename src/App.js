@@ -27,7 +27,7 @@ const App = () => {
   };
 
   return (
-    <div className="flex bg-[#e1a485] min-h-screen">
+    <div className="flex min-h-screen bg-gradient-to-r from-[#E1A485] to-[#e1d285]">
       <Sidebar currentPage={currentPage} onPageChange={setCurrentPage} />
       <main className="flex-1 p-8">
         {renderPage()}
