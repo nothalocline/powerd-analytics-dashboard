@@ -48,7 +48,7 @@ const Dashboard = () => {
         </div>
 
         <div className="mb-8">
-          <h2 className="text-2xl font-bold text-foreground mb-4">QuickSight Analytics</h2>
+          <h2 className="text-lg font-bold text-foreground mb-4 pl-7">QuickSight Analytics</h2>
           <QuickSightEmbed 
             dashboardId="30ac898d-9944-4828-be94-bbc8177a58ef" 
             height="800px" 
