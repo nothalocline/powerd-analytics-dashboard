@@ -23,6 +23,8 @@ import {
   Scatter,
 } from "recharts";
 
+import QuickSightEmbed from '../components/QuickSightEmbed';
+
 const Dashboard = () => {
   return (
     <div className="min-h-screen rounded-2xl bg-background">
@@ -43,6 +45,14 @@ const Dashboard = () => {
           {statsData.map((stat) => (
             <StatCard key={stat.label} label={stat.label} value={stat.value} />
           ))}
+        </div>
+
+        <div className="mb-8">
+          <h2 className="text-2xl font-bold text-foreground mb-4">QuickSight Analytics</h2>
+          <QuickSightEmbed 
+            dashboardId="30ac898d-9944-4828-be94-bbc8177a58ef" 
+            height="800px" 
+          />
         </div>
 
         {/* Projects at Risk */}

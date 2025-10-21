@@ -87,20 +87,3 @@ export const delayData = [
   { project: "Factory", onTime: 45, delayed: 35, critical: 20 },
   { project: "Residential", onTime: 80, delayed: 15, critical: 5 },
 ];
-
-// Top Performers (kept from original)
-export const topPerformers = [
-  { id: 1, name: "Ronald Richards", handle: "@ronrichards", percentage: 15, avatar: "RR" },
-  { id: 2, name: "Jane Cooper", handle: "@janecooper", percentage: 12, avatar: "JC" },
-  { id: 3, name: "Jenny Wilson", handle: "@jennywilson", percentage: 10, avatar: "JW" },
-  { id: 4, name: "Kristin Watson", handle: "@kristinwatson", percentage: 8, avatar: "KW" }
-];
-
-// Channels Data (kept from original)
-export const channelsData = [
-  { id: 1, name: "Youtube", handle: "@username", change: "+12.5", color: "bg-red-500" },
-  { id: 2, name: "Instagram", handle: "@username", change: "+8.3", color: "bg-pink-500" },
-  { id: 3, name: "Facebook", handle: "@username", change: "+15.7", color: "bg-blue-600" },
-  { id: 4, name: "Twitter", handle: "@username", change: "+6.2", color: "bg-sky-500" },
-  { id: 5, name: "LinkedIn", handle: "@username", change: "+9.8", color: "bg-blue-700" }
-];

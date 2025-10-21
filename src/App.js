@@ -3,6 +3,9 @@ import Sidebar from "./components/Sidebar";
 import Dashboard from './pages/Dashboard';
 import ProjectInput from './pages/ProjectInput';
 import AnalyticsResults from './pages/AnalyticsResults';
+import KPIDashboard from './pages/KPIDashboard';
+import ProjectDrilldown from './pages/ProjectDrilldown';
+import QuickSightPage from './pages/QuickSightPage';
 
 import './App.css';
 
@@ -17,10 +20,12 @@ const App = () => {
         return <ProjectInput />;
       case 'analytics':
         return <AnalyticsResults />;
+      case 'quicksight':
+        return <QuickSightPage />;
       case 'kpi':
-        return <div className="p-8"><h1 className="text-2xl font-bold">KPI Benchmarking - Coming Soon</h1></div>;
+        return <KPIDashboard />;
       case 'drilldown':
-        return <div className="p-8"><h1 className="text-2xl font-bold">Project Drilldown - Coming Soon</h1></div>;
+        return <ProjectDrilldown />;
       default:
         return <Dashboard />;
     }

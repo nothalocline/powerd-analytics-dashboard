@@ -1,9 +1,10 @@
-import { LayoutDashboard, FileInput, ChartColumnStacked, TrendingUp, FolderOpen, LogOut } from "lucide-react";
+import { LayoutDashboard, FileInput, ChartColumnStacked, TrendingUp, FolderOpen, BarChart3 } from "lucide-react";
 
 const navItems = [
   { icon: LayoutDashboard, label: "Overview", page: "overview", badge: true },
   { icon: FileInput, label: "Project Input", page: "project-input" },
   { icon: ChartColumnStacked, label: "Analytics Results", page: "analytics" },
+  { icon: BarChart3, label: "QuickSight", page: "quicksight" },
   { icon: TrendingUp, label: "KPI Benchmarking", page: "kpi" },
   { icon: FolderOpen, label: "Project Drilldown", page: "drilldown" },
 ];

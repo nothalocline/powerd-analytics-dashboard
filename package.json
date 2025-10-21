@@ -4,6 +4,7 @@
   "private": true,
   "dependencies": {
     "@radix-ui/react-avatar": "^1.1.10",
+    "aws-sdk": "^2.1692.0",
     "axios": "^1.12.2",
     "date-fns": "^4.1.0",
     "lucide-react": "^0.545.0",
