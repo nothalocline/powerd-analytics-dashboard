@@ -13,23 +13,12 @@ export default function Sidebar({ currentPage, onPageChange }) {
   return (
     <aside className="w-64 bg-[#f8f9fa] min-h-screen flex flex-col p-6">
       {/* Logo */}
-      <div className="mb-8 flex items-center gap-2">
-        <div className="w-6 h-6 grid grid-cols-2 gap-0.5">
-          <div className="w-2.5 h-2.5 rounded-full bg-blue-600"></div>
-          <div className="w-2.5 h-2.5 rounded-full bg-pink-500"></div>
-          <div className="w-2.5 h-2.5 rounded-full bg-yellow-500"></div>
-          <div className="w-2.5 h-2.5 rounded-full bg-blue-600"></div>
-        </div>
-        <span className="text-xl font-bold">Power D</span>
-      </div>
-
-      {/* Profile */}
-      <div className="mb-12 text-center">
-        <div className="w-20 h-20 mx-auto mb-3 rounded-full bg-blue-600 flex items-center justify-center text-white text-2xl font-bold">
-          NF
-        </div>
-        <h2 className="text-lg font-bold mb-1 font-serif">Nicole Faustino</h2>
-        <p className="text-sm text-gray-600">Marketing Director</p>
+      <div className="mb-8">
+        <img 
+          src="/powerd-logo.png" 
+          alt="Power D's Electrical Services" 
+          className="w-full h-auto max-w-[200px]"
+        />
       </div>
 
       {/* Navigation */}
