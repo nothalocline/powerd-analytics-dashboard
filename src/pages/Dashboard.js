@@ -1,13 +1,28 @@
+import ProjectClusteringDashboard from "../components/ProjectClustering"
 import { TrendingUp, DollarSign, BarChart3, Percent, TrendingDown } from "lucide-react"
 import { useState, useEffect } from "react"
-import { XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, BarChart, Bar } from "recharts"
+import {
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  Legend,
+  ResponsiveContainer,
+  BarChart,
+  Bar,
+  ComposedChart,
+  Line,
+} from "recharts"
 import {
   getServiceProfitability,
   calculateTotalMetrics,
   prepareChartData,
+  calculateClientTypeProfitability,
   formatCurrency,
   formatNumber,
   formatPercentage,
+  formatMaterialParetoChartData,
+  prepareParetoChartData,
 } from "../components/profitabilityModel"
 
 const Dashboard = () => {
@@ -15,6 +30,8 @@ const Dashboard = () => {
   const [top3Volume, setTop3Volume] = useState([])
   const [top3Revenue, setTop3Revenue] = useState([])
   const [profitMarginData, setProfitMarginData] = useState([])
+  const [clientTypeMarginData, setClientTypeMarginData] = useState([])
+  const [paretoData, setParetoData] = useState([])
   const [mostProfitable, setMostProfitable] = useState(null)
   const [leastProfitable, setLeastProfitable] = useState(null)
   const [statsData, setStatsData] = useState([])
@@ -26,7 +43,6 @@ const Dashboard = () => {
       try {
         setLoading(true)
 
-        // Fetch data from API
         const result = await getServiceProfitability()
 
         // Prepare chart data (top 10 services)
@@ -55,6 +71,22 @@ const Dashboard = () => {
           .sort((a, b) => b.margin - a.margin)
           .slice(0, 10)
         setProfitMarginData(marginData)
+
+        const clientTypeData = calculateClientTypeProfitability(result.data)
+        setClientTypeMarginData(clientTypeData)
+
+        if (result.materialData && result.materialData.length > 0) {
+          const formattedPareto = formatMaterialParetoChartData(result.materialData, 10)
+          console.log("[v0] Material Pareto data prepared:", formattedPareto)
+          console.log("[v0] Material Pareto data length:", formattedPareto.length)
+          setParetoData(formattedPareto)
+        } else {
+      
+          const pareto = prepareParetoChartData(result.data, 10)
+          console.log("[v0] Service-based Pareto data prepared:", pareto)
+          console.log("[v0] Service-based Pareto data length:", pareto.length)
+          setParetoData(pareto)
+        }
 
         if (result.data.length > 0) {
           const sortedByMargin = [...result.data].sort(
@@ -135,12 +167,12 @@ const Dashboard = () => {
   }
 
   return (
-    <div className="min-h-screen rounded-2xl bg-background p-8">
+    <div className="min-h-screen rounded-2xl bg-background p-7">
       <div className="max-w-7xl mx-auto">
         {/* Header */}
         <div className="flex items-center justify-between mb-8">
           <div>
-            <h1 className="text-3xl font-bold text-foreground">Overview</h1>
+            <h1 className="text-3xl font-bold text-foreground">Service Profitability Dashboard</h1>
             <p className="text-muted-foreground mt-1">Analyze revenue, costs, and profit by service</p>
           </div>
           <div className="flex items-center gap-4">
@@ -334,6 +366,139 @@ const Dashboard = () => {
               )}
             </div>
 
+            {/* Profit Margin Analysis by Client Type */}
+            {clientTypeMarginData.length > 0 && (
+              <div className="bg-card rounded-2xl shadow-sm border border-border p-6 mb-8">
+                <div className="flex items-center justify-between mb-6">
+                  <div className="flex items-center gap-2">
+                    <BarChart3 className="w-5 h-5 text-indigo-500" />
+                    <h2 className="text-lg font-semibold text-foreground">Profit Margin Analysis by Client Type</h2>
+                  </div>
+                  <p className="text-sm text-muted-foreground">Ranked by Margin</p>
+                </div>
+                <ResponsiveContainer width="100%" height={350}>
+                  <BarChart data={clientTypeMarginData} margin={{ top: 20, right: 30, left: 60, bottom: 20 }}>
+                    <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
+                    <XAxis dataKey="name" stroke="hsl(var(--muted-foreground))" fontSize={12} />
+                    <YAxis
+                      stroke="hsl(var(--muted-foreground))"
+                      label={{ value: "Margin %", angle: -90, position: "insideLeft", offset: 10 }}
+                    />
+                    <Tooltip
+                      formatter={(value, name) => {
+                        if (name === "margin") return [formatPercentage(value), "Margin %"]
+                        if (name === "revenue") return [formatCurrency(value), "Revenue"]
+                        if (name === "profit") return [formatCurrency(value), "Profit"]
+                        return [value, name]
+                      }}
+                    />
+                    <Legend />
+                    <Bar dataKey="margin" name="Margin %" fill="#6366f1" radius={[8, 8, 0, 0]} />
+                  </BarChart>
+                </ResponsiveContainer>
+                <div className="mt-6 grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {clientTypeMarginData.map((ct) => (
+                    <div key={ct.name} className="bg-muted/30 rounded-lg p-4">
+                      <p className="text-sm text-muted-foreground mb-1">{ct.name}</p>
+                      <p className="text-xl font-bold text-foreground mb-3">{formatPercentage(ct.margin)}</p>
+                      <div className="space-y-1 text-xs">
+                        <div className="flex justify-between">
+                          <span className="text-muted-foreground">Revenue:</span>
+                          <span className="font-medium">{formatCurrency(ct.revenue)}</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-muted-foreground">Profit:</span>
+                          <span className="font-medium">{formatCurrency(ct.profit)}</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-muted-foreground">Projects:</span>
+                          <span className="font-medium">{formatNumber(ct.projects)}</span>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {paretoData.length > 0 && (
+              <div className="bg-card rounded-2xl shadow-sm border border-border p-6 mb-8">
+                <div className="flex items-center justify-between mb-6">
+                  <div className="flex items-center gap-2">
+                    <BarChart3 className="w-5 h-5 text-orange-500" />
+                    <h2 className="text-lg font-semibold text-foreground">Material Cost Structure Breakdown</h2>
+                  </div>
+                  <p className="text-sm text-muted-foreground">Pareto Analysis - Top 10 Categories</p>
+                </div>
+                <ResponsiveContainer width="100%" height={400}>
+                  <ComposedChart data={paretoData} margin={{ top: 20, right: 30, left: 60, bottom: 100 }}>
+                    <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
+                    <XAxis
+                      dataKey="name"
+                      stroke="hsl(var(--muted-foreground))"
+                      angle={-45}
+                      textAnchor="end"
+                      height={120}
+                      fontSize={12}
+                    />
+                    <YAxis
+                      yAxisId="left"
+                      stroke="hsl(var(--muted-foreground))"
+                      label={{ value: "Material Cost (₱)", angle: -90, position: "insideLeft", offset: 10 }}
+                      tickFormatter={(value) => `₱${(value / 1000).toFixed(0)}k`}
+                    />
+                    <YAxis
+                      yAxisId="right"
+                      orientation="right"
+                      stroke="hsl(var(--muted-foreground))"
+                      label={{ value: "Cumulative %", angle: 90, position: "insideRight", offset: 10 }}
+                    />
+                    <Tooltip
+                      formatter={(value, name) => {
+                        if (name === "cost") return [formatCurrency(value), "Material Cost"]
+                        if (name === "percentage") return [formatPercentage(value), "% of Total"]
+                        if (name === "cumulativePercentage") return [formatPercentage(value), "Cumulative %"]
+                        return [value, name]
+                      }}
+                    />
+                    <Legend />
+                    <Bar yAxisId="left" dataKey="cost" name="Material Cost" fill="#f97316" radius={[8, 8, 0, 0]} />
+                    <Line
+                      yAxisId="right"
+                      type="monotone"
+                      dataKey="cumulativePercentage"
+                      name="Cumulative %"
+                      stroke="#ef4444"
+                      strokeWidth={2}
+                      dot={{ fill: "#ef4444", r: 4 }}
+                    />
+                  </ComposedChart>
+                </ResponsiveContainer>
+                <div className="mt-6 bg-muted/30 rounded-lg p-4">
+                  <p className="text-sm font-semibold text-foreground mb-3">Pareto Analysis Summary</p>
+                  <p className="text-xs text-muted-foreground mb-3">
+                    The chart identifies the top material cost drivers. The line shows cumulative percentage - when it
+                    reaches 80%, you've identified the critical cost categories requiring attention.
+                  </p>
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    {paretoData.slice(0, 3).map((item, idx) => (
+                      <div key={item.name} className="border border-border rounded p-3">
+                        <p className="text-xs text-muted-foreground mb-1">#{idx + 1} Cost Driver</p>
+                        <p className="font-semibold text-foreground text-sm">{item.name}</p>
+                        <p className="text-sm text-orange-600 font-bold mt-1">{formatCurrency(item.cost)}</p>
+                        <p className="text-xs text-muted-foreground mt-1">{formatPercentage(item.percentage)}</p>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            )}
+
+{/* Project Performance Clustering */}
+{!loading && !error && (
+  <ProjectClusteringDashboard />
+)}
+
             {/* Main Chart - Revenue vs Cost */}
             <div className="bg-card rounded-2xl shadow-sm border border-border p-6 mb-8">
               <div className="flex items-center justify-between mb-6">
@@ -359,7 +524,7 @@ const Dashboard = () => {
                       stroke="hsl(var(--muted-foreground))"
                       tickFormatter={(value) => `₱${(value / 1000).toFixed(0)}k`}
                     />
-                    <Tooltip content={<CustomTooltip />} />
+                    <Tooltip formatter={(value) => formatCurrency(value)} />
                     <Legend />
                     <Bar dataKey="revenue" name="Revenue" fill="#3b82f6" radius={[8, 8, 0, 0]} />
                     <Bar dataKey="cost" name="Cost" fill="#ef4444" radius={[8, 8, 0, 0]} />
@@ -397,7 +562,7 @@ const Dashboard = () => {
                       stroke="hsl(var(--muted-foreground))"
                       tickFormatter={(value) => `₱${(value / 1000).toFixed(0)}k`}
                     />
-                    <Tooltip content={<CustomTooltip />} />
+                    <Tooltip formatter={(value) => formatCurrency(value)} />
                     <Legend />
                     <Bar dataKey="profit" name="Profit" fill="#10b981" radius={[8, 8, 0, 0]} />
                   </BarChart>
