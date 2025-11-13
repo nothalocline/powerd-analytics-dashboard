@@ -1,27 +1,22 @@
-import { TrendingUp, DollarSign, BarChart3, Percent } from "lucide-react"
-import { StatCard } from "../components/StatCard"
+import { TrendingUp, DollarSign, BarChart3, Percent, TrendingDown } from "lucide-react"
 import { useState, useEffect } from "react"
-import { 
-  XAxis, 
-  YAxis, 
-  CartesianGrid, 
-  Tooltip, 
-  ResponsiveContainer, 
-  BarChart, 
-  Bar, 
-  Legend 
-} from "recharts"
+import { XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, BarChart, Bar } from "recharts"
 import {
   getServiceProfitability,
   calculateTotalMetrics,
   prepareChartData,
   formatCurrency,
   formatNumber,
-  formatPercentage
+  formatPercentage,
 } from "../components/profitabilityModel"
 
 const Dashboard = () => {
   const [chartData, setChartData] = useState([])
+  const [top3Volume, setTop3Volume] = useState([])
+  const [top3Revenue, setTop3Revenue] = useState([])
+  const [profitMarginData, setProfitMarginData] = useState([])
+  const [mostProfitable, setMostProfitable] = useState(null)
+  const [leastProfitable, setLeastProfitable] = useState(null)
   const [statsData, setStatsData] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
@@ -30,41 +25,80 @@ const Dashboard = () => {
     const loadServiceProfitability = async () => {
       try {
         setLoading(true)
-        
+
         // Fetch data from API
         const result = await getServiceProfitability()
-        
+
         // Prepare chart data (top 10 services)
         const formattedChartData = prepareChartData(result.data, 10)
         setChartData(formattedChartData)
 
+        const volumeData = result.data.slice(0, 3).map((service) => ({
+          name: service.service_name || "Unknown",
+          volume: service.project_count || 0,
+        }))
+        setTop3Volume(volumeData)
+
+        const revenueData = result.data.slice(0, 3).map((service) => ({
+          name: service.service_name || "Unknown",
+          revenue: service.total_revenue || 0,
+        }))
+        setTop3Revenue(revenueData)
+
+        const marginData = result.data
+          .map((service) => ({
+            name: service.service_name || "Unknown",
+            margin: service.avg_profit_margin_pct || 0,
+            profit: service.total_profit || 0,
+            revenue: service.total_revenue || 0,
+          }))
+          .sort((a, b) => b.margin - a.margin)
+          .slice(0, 10)
+        setProfitMarginData(marginData)
+
+        if (result.data.length > 0) {
+          const sortedByMargin = [...result.data].sort(
+            (a, b) => (b.avg_profit_margin_pct || 0) - (a.avg_profit_margin_pct || 0),
+          )
+          setMostProfitable({
+            name: sortedByMargin[0]?.service_name || "Unknown",
+            margin: sortedByMargin[0]?.avg_profit_margin_pct || 0,
+            profit: sortedByMargin[0]?.total_profit || 0,
+          })
+          setLeastProfitable({
+            name: sortedByMargin[sortedByMargin.length - 1]?.service_name || "Unknown",
+            margin: sortedByMargin[sortedByMargin.length - 1]?.avg_profit_margin_pct || 0,
+            profit: sortedByMargin[sortedByMargin.length - 1]?.total_profit || 0,
+          })
+        }
+
         // Calculate summary statistics
         const totals = calculateTotalMetrics(result.data)
-        
+
         setStatsData([
-          { 
-            label: "Total Revenue", 
+          {
+            label: "Total Revenue",
             value: formatCurrency(totals.totalRevenue),
             icon: DollarSign,
-            color: "text-blue-500"
+            color: "text-blue-500",
           },
-          { 
-            label: "Total Cost", 
+          {
+            label: "Total Cost",
             value: formatCurrency(totals.totalCost),
-            icon: TrendingUp,
-            color: "text-red-500"
+            icon: TrendingDown,
+            color: "text-red-500",
           },
-          { 
-            label: "Total Profit", 
+          {
+            label: "Total Profit",
             value: formatCurrency(totals.totalProfit),
             icon: TrendingUp,
-            color: "text-green-500"
+            color: "text-green-500",
           },
-          { 
-            label: "Overall Margin", 
+          {
+            label: "Overall Margin",
             value: formatPercentage(totals.overallMargin),
             icon: Percent,
-            color: "text-purple-500"
+            color: "text-purple-500",
           },
         ])
 
@@ -88,15 +122,12 @@ const Dashboard = () => {
           <p className="font-semibold text-foreground mb-2">{label}</p>
           {payload.map((entry, index) => (
             <p key={index} className="text-sm" style={{ color: entry.color }}>
-              {entry.name}: {formatCurrency(entry.value)}
+              {entry.name}:{" "}
+              {entry.payload?.margin !== undefined ? formatPercentage(entry.value) : formatCurrency(entry.value)}
             </p>
           ))}
-          <p className="text-sm text-muted-foreground mt-2">
-            Projects: {payload[0]?.payload?.projects || 0}
-          </p>
-          <p className="text-sm text-muted-foreground">
-            Margin: {formatPercentage(payload[0]?.payload?.margin || 0)}
-          </p>
+          <p className="text-sm text-muted-foreground mt-2">Projects: {payload[0]?.payload?.projects || 0}</p>
+          <p className="text-sm text-muted-foreground">Margin: {formatPercentage(payload[0]?.payload?.margin || 0)}</p>
         </div>
       )
     }
@@ -154,6 +185,155 @@ const Dashboard = () => {
               ))}
             </div>
 
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-8">
+              {/* Top 3 by Volume */}
+              <div className="bg-card rounded-2xl shadow-sm border border-border p-6">
+                <div className="flex items-center justify-between mb-6">
+                  <div className="flex items-center gap-2">
+                    <BarChart3 className="w-5 h-5 text-blue-500" />
+                    <h2 className="text-lg font-semibold text-foreground">Top 3 Service Types by Volume</h2>
+                  </div>
+                </div>
+                {top3Volume.length > 0 ? (
+                  <ResponsiveContainer width="100%" height={300}>
+                    <BarChart data={top3Volume}>
+                      <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
+                      <XAxis
+                        dataKey="name"
+                        stroke="hsl(var(--muted-foreground))"
+                        angle={-45}
+                        textAnchor="end"
+                        height={80}
+                        fontSize={12}
+                      />
+                      <YAxis stroke="hsl(var(--muted-foreground))" />
+                      <Tooltip formatter={(value) => formatNumber(value)} />
+                      <Bar dataKey="volume" name="Project Count" fill="#3b82f6" radius={[8, 8, 0, 0]} />
+                    </BarChart>
+                  </ResponsiveContainer>
+                ) : (
+                  <div className="flex items-center justify-center h-64">
+                    <p className="text-muted-foreground">No data available</p>
+                  </div>
+                )}
+              </div>
+
+              {/* Top 3 by Revenue */}
+              <div className="bg-card rounded-2xl shadow-sm border border-border p-6">
+                <div className="flex items-center justify-between mb-6">
+                  <div className="flex items-center gap-2">
+                    <DollarSign className="w-5 h-5 text-green-500" />
+                    <h2 className="text-lg font-semibold text-foreground">Top 3 Service Types by Revenue</h2>
+                  </div>
+                </div>
+                {top3Revenue.length > 0 ? (
+                  <ResponsiveContainer width="100%" height={300}>
+                    <BarChart data={top3Revenue}>
+                      <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
+                      <XAxis
+                        dataKey="name"
+                        stroke="hsl(var(--muted-foreground))"
+                        angle={-45}
+                        textAnchor="end"
+                        height={80}
+                        fontSize={12}
+                      />
+                      <YAxis
+                        stroke="hsl(var(--muted-foreground))"
+                        tickFormatter={(value) => `₱${(value / 1000).toFixed(0)}k`}
+                      />
+                      <Tooltip formatter={(value) => formatCurrency(value)} />
+                      <Bar dataKey="revenue" name="Revenue" fill="#10b981" radius={[8, 8, 0, 0]} />
+                    </BarChart>
+                  </ResponsiveContainer>
+                ) : (
+                  <div className="flex items-center justify-center h-64">
+                    <p className="text-muted-foreground">No data available</p>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-8">
+              {/* Most Profitable */}
+              {mostProfitable && (
+                <div className="bg-card rounded-2xl shadow-sm border border-border p-6 border-l-4 border-l-green-500">
+                  <div className="flex items-center gap-2 mb-4">
+                    <TrendingUp className="w-5 h-5 text-green-500" />
+                    <h3 className="text-lg font-semibold text-foreground">Most Profitable Service</h3>
+                  </div>
+                  <p className="text-2xl font-bold text-green-600 mb-2">{mostProfitable.name}</p>
+                  <div className="space-y-2">
+                    <div className="flex justify-between">
+                      <span className="text-muted-foreground">Profit Margin:</span>
+                      <span className="font-semibold text-foreground">{formatPercentage(mostProfitable.margin)}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-muted-foreground">Total Profit:</span>
+                      <span className="font-semibold text-foreground">{formatCurrency(mostProfitable.profit)}</span>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Least Profitable */}
+              {leastProfitable && (
+                <div className="bg-card rounded-2xl shadow-sm border border-border p-6 border-l-4 border-l-red-500">
+                  <div className="flex items-center gap-2 mb-4">
+                    <TrendingDown className="w-5 h-5 text-red-500" />
+                    <h3 className="text-lg font-semibold text-foreground">Least Profitable Service</h3>
+                  </div>
+                  <p className="text-2xl font-bold text-red-600 mb-2">{leastProfitable.name}</p>
+                  <div className="space-y-2">
+                    <div className="flex justify-between">
+                      <span className="text-muted-foreground">Profit Margin:</span>
+                      <span className="font-semibold text-foreground">{formatPercentage(leastProfitable.margin)}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-muted-foreground">Total Profit:</span>
+                      <span className="font-semibold text-foreground">{formatCurrency(leastProfitable.profit)}</span>
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
+
+            <div className="bg-card rounded-2xl shadow-sm border border-border p-6 mb-8">
+              <div className="flex items-center justify-between mb-6">
+                <div className="flex items-center gap-2">
+                  <Percent className="w-5 h-5 text-purple-500" />
+                  <h2 className="text-lg font-semibold text-foreground">Profit Margin Analysis by Service Type</h2>
+                </div>
+                <p className="text-sm text-muted-foreground">Top 10 Services</p>
+              </div>
+              {profitMarginData.length > 0 ? (
+                <ResponsiveContainer width="100%" height={400}>
+                  <BarChart data={profitMarginData}>
+                    <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
+                    <XAxis
+                      dataKey="name"
+                      stroke="hsl(var(--muted-foreground))"
+                      angle={-45}
+                      textAnchor="end"
+                      height={100}
+                      fontSize={12}
+                    />
+                    <YAxis
+                      stroke="hsl(var(--muted-foreground))"
+                      label={{ value: "Margin %", angle: -90, position: "insideLeft" }}
+                    />
+                    <Tooltip formatter={(value) => formatPercentage(value)} />
+                    <Legend />
+                    <Bar dataKey="margin" name="Profit Margin %" fill="#8b5cf6" radius={[8, 8, 0, 0]} />
+                  </BarChart>
+                </ResponsiveContainer>
+              ) : (
+                <div className="flex items-center justify-center h-96">
+                  <p className="text-muted-foreground">No data available</p>
+                </div>
+              )}
+            </div>
+
             {/* Main Chart - Revenue vs Cost */}
             <div className="bg-card rounded-2xl shadow-sm border border-border p-6 mb-8">
               <div className="flex items-center justify-between mb-6">
@@ -167,15 +347,15 @@ const Dashboard = () => {
                 <ResponsiveContainer width="100%" height={400}>
                   <BarChart data={chartData}>
                     <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
-                    <XAxis 
-                      dataKey="name" 
+                    <XAxis
+                      dataKey="name"
                       stroke="hsl(var(--muted-foreground))"
                       angle={-45}
                       textAnchor="end"
                       height={100}
                       fontSize={12}
                     />
-                    <YAxis 
+                    <YAxis
                       stroke="hsl(var(--muted-foreground))"
                       tickFormatter={(value) => `₱${(value / 1000).toFixed(0)}k`}
                     />
@@ -205,26 +385,21 @@ const Dashboard = () => {
                 <ResponsiveContainer width="100%" height={400}>
                   <BarChart data={chartData}>
                     <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
-                    <XAxis 
-                      dataKey="name" 
+                    <XAxis
+                      dataKey="name"
                       stroke="hsl(var(--muted-foreground))"
                       angle={-45}
                       textAnchor="end"
                       height={100}
                       fontSize={12}
                     />
-                    <YAxis 
+                    <YAxis
                       stroke="hsl(var(--muted-foreground))"
                       tickFormatter={(value) => `₱${(value / 1000).toFixed(0)}k`}
                     />
                     <Tooltip content={<CustomTooltip />} />
                     <Legend />
-                    <Bar 
-                      dataKey="profit" 
-                      name="Profit" 
-                      fill="#10b981" 
-                      radius={[8, 8, 0, 0]} 
-                    />
+                    <Bar dataKey="profit" name="Profit" fill="#10b981" radius={[8, 8, 0, 0]} />
                   </BarChart>
                 </ResponsiveContainer>
               ) : (
