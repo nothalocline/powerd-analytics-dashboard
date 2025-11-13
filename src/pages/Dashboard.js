@@ -1,5 +1,5 @@
 import ProjectClusteringDashboard from "../components/ProjectClustering"
-import { TrendingUp, DollarSign, BarChart3, Percent, TrendingDown } from "lucide-react"
+import { TrendingUp, DollarSign, BarChart3, Percent, TrendingDown, Clock, Zap } from "lucide-react"
 import { useState, useEffect } from "react"
 import {
   XAxis,
@@ -12,6 +12,8 @@ import {
   Bar,
   ComposedChart,
   Line,
+  LineChart,
+  Cell,
 } from "recharts"
 import {
   getServiceProfitability,
@@ -23,7 +25,14 @@ import {
   formatPercentage,
   formatMaterialParetoChartData,
   prepareParetoChartData,
+  calculateCostToRevenueRatio,
+  preparePaybackPeriodHistogram,
+  calculateRecoverySpeedAnalysis,
+  preparePaymentWaterfallData,
 } from "../components/profitabilityModel"
+
+// Color palette for categorical data
+const COLORS = ['#3b82f6', '#10b981', '#f59e0b', '#8b5cf6', '#ef4444', '#06b6d4', '#ec4899', '#14b8a6', '#f97316', '#6366f1']
 
 const Dashboard = () => {
   const [chartData, setChartData] = useState([])
@@ -37,6 +46,12 @@ const Dashboard = () => {
   const [statsData, setStatsData] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
+  
+  // New state for additional visualizations
+  const [costToRevenueData, setCostToRevenueData] = useState([])
+  const [paybackHistogramData, setPaybackHistogramData] = useState([])
+  const [recoverySpeedData, setRecoverySpeedData] = useState([])
+  const [paymentWaterfallData, setPaymentWaterfallData] = useState([])
 
   useEffect(() => {
     const loadServiceProfitability = async () => {
@@ -81,7 +96,6 @@ const Dashboard = () => {
           console.log("[v0] Material Pareto data length:", formattedPareto.length)
           setParetoData(formattedPareto)
         } else {
-      
           const pareto = prepareParetoChartData(result.data, 10)
           console.log("[v0] Service-based Pareto data prepared:", pareto)
           console.log("[v0] Service-based Pareto data length:", pareto.length)
@@ -134,6 +148,22 @@ const Dashboard = () => {
           },
         ])
 
+        // NEW: Calculate Cost to Revenue Ratio data
+        const costRevData = calculateCostToRevenueRatio(result.data)
+        setCostToRevenueData(costRevData.slice(0, 10))
+
+        // NEW: Prepare Payback Period Histogram
+        const paybackHist = preparePaybackPeriodHistogram(result.data)
+        setPaybackHistogramData(paybackHist)
+
+        // NEW: Calculate Recovery Speed Analysis
+        const recoverySpeed = calculateRecoverySpeedAnalysis(result.data)
+        setRecoverySpeedData(recoverySpeed)
+
+        // NEW: Prepare Payment Waterfall Data
+        const waterfallData = preparePaymentWaterfallData(recoverySpeed)
+        setPaymentWaterfallData(waterfallData)
+
         setError(null)
       } catch (err) {
         console.error("Error fetching service profitability:", err)
@@ -160,6 +190,24 @@ const Dashboard = () => {
           ))}
           <p className="text-sm text-muted-foreground mt-2">Projects: {payload[0]?.payload?.projects || 0}</p>
           <p className="text-sm text-muted-foreground">Margin: {formatPercentage(payload[0]?.payload?.margin || 0)}</p>
+        </div>
+      )
+    }
+    return null
+  }
+
+  // Custom tooltip for Recovery Speed
+  const RecoveryTooltip = ({ active, payload, label }) => {
+    if (active && payload && payload.length) {
+      const data = payload[0].payload
+      return (
+        <div className="bg-card border border-border rounded-lg p-4 shadow-lg">
+          <p className="font-semibold text-foreground mb-2">{data.clientType}</p>
+          <p className="text-sm text-muted-foreground">{data.milestone}</p>
+          <p className="text-sm font-bold text-blue-500 mt-1">{formatPercentage(data.percentage, 0)}</p>
+          {data.cumulative && (
+            <p className="text-xs text-muted-foreground mt-1">Cumulative: {formatPercentage(data.cumulative, 0)}</p>
+          )}
         </div>
       )
     }
@@ -221,10 +269,7 @@ const Dashboard = () => {
               {/* Top 3 by Volume */}
               <div className="bg-card rounded-2xl shadow-sm border border-border p-6">
                 <div className="flex items-center justify-between mb-6">
-                  <div className="flex items-center gap-2">
-                    <BarChart3 className="w-5 h-5 text-blue-500" />
-                    <h2 className="text-lg font-semibold text-foreground">Top 3 Service Types by Volume</h2>
-                  </div>
+                  <h2 className="text-lg font-semibold text-foreground">Top 3 Service Types by Volume</h2>
                 </div>
                 {top3Volume.length > 0 ? (
                   <ResponsiveContainer width="100%" height={300}>
@@ -233,14 +278,15 @@ const Dashboard = () => {
                       <XAxis
                         dataKey="name"
                         stroke="hsl(var(--muted-foreground))"
-                        angle={-45}
-                        textAnchor="end"
-                        height={80}
                         fontSize={12}
                       />
                       <YAxis stroke="hsl(var(--muted-foreground))" />
                       <Tooltip formatter={(value) => formatNumber(value)} />
-                      <Bar dataKey="volume" name="Project Count" fill="#3b82f6" radius={[8, 8, 0, 0]} />
+                      <Bar dataKey="volume" name="Project Count" radius={[8, 8, 0, 0]}>
+                        {top3Volume.map((entry, index) => (
+                          <Cell key={`cell-${index}`} fill={['#3b82f6', '#10b981', '#f59e0b'][index]} />
+                        ))}
+                      </Bar>
                     </BarChart>
                   </ResponsiveContainer>
                 ) : (
@@ -253,10 +299,7 @@ const Dashboard = () => {
               {/* Top 3 by Revenue */}
               <div className="bg-card rounded-2xl shadow-sm border border-border p-6">
                 <div className="flex items-center justify-between mb-6">
-                  <div className="flex items-center gap-2">
-                    <DollarSign className="w-5 h-5 text-green-500" />
-                    <h2 className="text-lg font-semibold text-foreground">Top 3 Service Types by Revenue</h2>
-                  </div>
+                  <h2 className="text-lg font-semibold text-foreground">Top 3 Service Types by Revenue</h2>
                 </div>
                 {top3Revenue.length > 0 ? (
                   <ResponsiveContainer width="100%" height={300}>
@@ -265,9 +308,6 @@ const Dashboard = () => {
                       <XAxis
                         dataKey="name"
                         stroke="hsl(var(--muted-foreground))"
-                        angle={-45}
-                        textAnchor="end"
-                        height={80}
                         fontSize={12}
                       />
                       <YAxis
@@ -275,7 +315,11 @@ const Dashboard = () => {
                         tickFormatter={(value) => `₱${(value / 1000).toFixed(0)}k`}
                       />
                       <Tooltip formatter={(value) => formatCurrency(value)} />
-                      <Bar dataKey="revenue" name="Revenue" fill="#10b981" radius={[8, 8, 0, 0]} />
+                      <Bar dataKey="revenue" name="Revenue" radius={[8, 8, 0, 0]}>
+                        {top3Revenue.map((entry, index) => (
+                          <Cell key={`cell-${index}`} fill={['#3b82f6', '#10b981', '#f59e0b'][index]} />
+                        ))}
+                      </Bar>
                     </BarChart>
                   </ResponsiveContainer>
                 ) : (
@@ -290,10 +334,7 @@ const Dashboard = () => {
               {/* Most Profitable */}
               {mostProfitable && (
                 <div className="bg-card rounded-2xl shadow-sm border border-border p-6 border-l-4 border-l-green-500">
-                  <div className="flex items-center gap-2 mb-4">
-                    <TrendingUp className="w-5 h-5 text-green-500" />
-                    <h3 className="text-lg font-semibold text-foreground">Most Profitable Service</h3>
-                  </div>
+                  <h3 className="text-lg font-semibold text-foreground mb-4">Most Profitable Service</h3>
                   <p className="text-2xl font-bold text-green-600 mb-2">{mostProfitable.name}</p>
                   <div className="space-y-2">
                     <div className="flex justify-between">
@@ -311,10 +352,7 @@ const Dashboard = () => {
               {/* Least Profitable */}
               {leastProfitable && (
                 <div className="bg-card rounded-2xl shadow-sm border border-border p-6 border-l-4 border-l-red-500">
-                  <div className="flex items-center gap-2 mb-4">
-                    <TrendingDown className="w-5 h-5 text-red-500" />
-                    <h3 className="text-lg font-semibold text-foreground">Least Profitable Service</h3>
-                  </div>
+                  <h3 className="text-lg font-semibold text-foreground mb-4">Least Profitable Service</h3>
                   <p className="text-2xl font-bold text-red-600 mb-2">{leastProfitable.name}</p>
                   <div className="space-y-2">
                     <div className="flex justify-between">
@@ -332,10 +370,7 @@ const Dashboard = () => {
 
             <div className="bg-card rounded-2xl shadow-sm border border-border p-6 mb-8">
               <div className="flex items-center justify-between mb-6">
-                <div className="flex items-center gap-2">
-                  <Percent className="w-5 h-5 text-purple-500" />
-                  <h2 className="text-lg font-semibold text-foreground">Profit Margin Analysis by Service Type</h2>
-                </div>
+                <h2 className="text-lg font-semibold text-foreground">Profit Margin Analysis by Service Type</h2>
                 <p className="text-sm text-muted-foreground">Top 10 Services</p>
               </div>
               {profitMarginData.length > 0 ? (
@@ -345,9 +380,6 @@ const Dashboard = () => {
                     <XAxis
                       dataKey="name"
                       stroke="hsl(var(--muted-foreground))"
-                      angle={-45}
-                      textAnchor="end"
-                      height={100}
                       fontSize={12}
                     />
                     <YAxis
@@ -356,7 +388,11 @@ const Dashboard = () => {
                     />
                     <Tooltip formatter={(value) => formatPercentage(value)} />
                     <Legend />
-                    <Bar dataKey="margin" name="Profit Margin %" fill="#8b5cf6" radius={[8, 8, 0, 0]} />
+                    <Bar dataKey="margin" name="Profit Margin %" radius={[8, 8, 0, 0]}>
+                      {profitMarginData.map((entry, index) => (
+                        <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                      ))}
+                    </Bar>
                   </BarChart>
                 </ResponsiveContainer>
               ) : (
@@ -370,10 +406,7 @@ const Dashboard = () => {
             {clientTypeMarginData.length > 0 && (
               <div className="bg-card rounded-2xl shadow-sm border border-border p-6 mb-8">
                 <div className="flex items-center justify-between mb-6">
-                  <div className="flex items-center gap-2">
-                    <BarChart3 className="w-5 h-5 text-indigo-500" />
-                    <h2 className="text-lg font-semibold text-foreground">Profit Margin Analysis by Client Type</h2>
-                  </div>
+                  <h2 className="text-lg font-semibold text-foreground">Profit Margin Analysis by Client Type</h2>
                   <p className="text-sm text-muted-foreground">Ranked by Margin</p>
                 </div>
                 <ResponsiveContainer width="100%" height={350}>
@@ -393,7 +426,11 @@ const Dashboard = () => {
                       }}
                     />
                     <Legend />
-                    <Bar dataKey="margin" name="Margin %" fill="#6366f1" radius={[8, 8, 0, 0]} />
+                    <Bar dataKey="margin" name="Margin %" radius={[8, 8, 0, 0]}>
+                      {clientTypeMarginData.map((entry, index) => (
+                        <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                      ))}
+                    </Bar>
                   </BarChart>
                 </ResponsiveContainer>
                 <div className="mt-6 grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -424,21 +461,15 @@ const Dashboard = () => {
             {paretoData.length > 0 && (
               <div className="bg-card rounded-2xl shadow-sm border border-border p-6 mb-8">
                 <div className="flex items-center justify-between mb-6">
-                  <div className="flex items-center gap-2">
-                    <BarChart3 className="w-5 h-5 text-orange-500" />
-                    <h2 className="text-lg font-semibold text-foreground">Material Cost Structure Breakdown</h2>
-                  </div>
+                  <h2 className="text-lg font-semibold text-foreground">Material Cost Structure Breakdown</h2>
                   <p className="text-sm text-muted-foreground">Pareto Analysis - Top 10 Categories</p>
                 </div>
                 <ResponsiveContainer width="100%" height={400}>
-                  <ComposedChart data={paretoData} margin={{ top: 20, right: 30, left: 60, bottom: 100 }}>
+                  <ComposedChart data={paretoData} margin={{ top: 20, right: 30, left: 60, bottom: 50 }}>
                     <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
                     <XAxis
                       dataKey="name"
                       stroke="hsl(var(--muted-foreground))"
-                      angle={-45}
-                      textAnchor="end"
-                      height={120}
                       fontSize={12}
                     />
                     <YAxis
@@ -462,7 +493,11 @@ const Dashboard = () => {
                       }}
                     />
                     <Legend />
-                    <Bar yAxisId="left" dataKey="cost" name="Material Cost" fill="#f97316" radius={[8, 8, 0, 0]} />
+                    <Bar yAxisId="left" dataKey="cost" name="Material Cost" radius={[8, 8, 0, 0]}>
+                      {paretoData.map((entry, index) => (
+                        <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                      ))}
+                    </Bar>
                     <Line
                       yAxisId="right"
                       type="monotone"
@@ -485,7 +520,7 @@ const Dashboard = () => {
                       <div key={item.name} className="border border-border rounded p-3">
                         <p className="text-xs text-muted-foreground mb-1">#{idx + 1} Cost Driver</p>
                         <p className="font-semibold text-foreground text-sm">{item.name}</p>
-                        <p className="text-sm text-orange-600 font-bold mt-1">{formatCurrency(item.cost)}</p>
+                        <p className="text-sm font-bold mt-1" style={{ color: COLORS[idx] }}>{formatCurrency(item.cost)}</p>
                         <p className="text-xs text-muted-foreground mt-1">{formatPercentage(item.percentage)}</p>
                       </div>
                     ))}
@@ -494,18 +529,15 @@ const Dashboard = () => {
               </div>
             )}
 
-{/* Project Performance Clustering */}
-{!loading && !error && (
-  <ProjectClusteringDashboard />
-)}
+            {/* Project Performance Clustering */}
+            {!loading && !error && (
+              <ProjectClusteringDashboard />
+            )}
 
             {/* Main Chart - Revenue vs Cost */}
             <div className="bg-card rounded-2xl shadow-sm border border-border p-6 mb-8">
               <div className="flex items-center justify-between mb-6">
-                <div className="flex items-center gap-2">
-                  <DollarSign className="w-5 h-5 text-blue-500" />
-                  <h2 className="text-lg font-semibold text-foreground">Revenue vs Cost by Service</h2>
-                </div>
+                <h2 className="text-lg font-semibold text-foreground">Revenue vs Cost by Service</h2>
                 <p className="text-sm text-muted-foreground">Top 10 Services</p>
               </div>
               {chartData.length > 0 ? (
@@ -515,9 +547,6 @@ const Dashboard = () => {
                     <XAxis
                       dataKey="name"
                       stroke="hsl(var(--muted-foreground))"
-                      angle={-45}
-                      textAnchor="end"
-                      height={100}
                       fontSize={12}
                     />
                     <YAxis
@@ -538,12 +567,9 @@ const Dashboard = () => {
             </div>
 
             {/* Profit Chart */}
-            <div className="bg-card rounded-2xl shadow-sm border border-border p-6">
+            <div className="bg-card rounded-2xl shadow-sm border border-border p-6 mb-8">
               <div className="flex items-center justify-between mb-6">
-                <div className="flex items-center gap-2">
-                  <TrendingUp className="w-5 h-5 text-green-500" />
-                  <h2 className="text-lg font-semibold text-foreground">Profit by Service</h2>
-                </div>
+                <h2 className="text-lg font-semibold text-foreground">Profit by Service</h2>
                 <p className="text-sm text-muted-foreground">Top 10 Services</p>
               </div>
               {chartData.length > 0 ? (
@@ -553,9 +579,6 @@ const Dashboard = () => {
                     <XAxis
                       dataKey="name"
                       stroke="hsl(var(--muted-foreground))"
-                      angle={-45}
-                      textAnchor="end"
-                      height={100}
                       fontSize={12}
                     />
                     <YAxis
@@ -573,6 +596,171 @@ const Dashboard = () => {
                 </div>
               )}
             </div>
+
+            {/* NEW: Cost to Revenue Ratio & Payback Period Analysis - MOVED TO END */}
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-8">
+              {/* Cost to Revenue Ratio */}
+              <div className="bg-card rounded-2xl shadow-sm border border-border p-6">
+                <div className="flex items-center justify-between mb-6">
+                  <h2 className="text-lg font-semibold text-foreground">Cost to Revenue Ratio by Service</h2>
+                  <p className="text-sm text-muted-foreground">Lower is Better</p>
+                </div>
+                {costToRevenueData.length > 0 ? (
+                  <ResponsiveContainer width="100%" height={350}>
+                    <BarChart data={costToRevenueData} margin={{ top: 20, right: 30, left: 60, bottom: 50 }}>
+                      <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
+                      <XAxis
+                        dataKey="name"
+                        stroke="hsl(var(--muted-foreground))"
+                        fontSize={12}
+                      />
+                      <YAxis
+                        stroke="hsl(var(--muted-foreground))"
+                        label={{ value: "Cost/Revenue %", angle: -90, position: "insideLeft", offset: 10 }}
+                      />
+                      <Tooltip
+                        formatter={(value, name) => {
+                          if (name === "costToRevenueRatio") return [formatPercentage(value, 1), "Cost/Revenue Ratio"]
+                          return [value, name]
+                        }}
+                      />
+                      <Legend />
+                      <Bar dataKey="costToRevenueRatio" name="Cost/Revenue %" radius={[8, 8, 0, 0]}>
+                        {costToRevenueData.map((entry, index) => (
+                          <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                        ))}
+                      </Bar>
+                    </BarChart>
+                  </ResponsiveContainer>
+                ) : (
+                  <div className="flex items-center justify-center h-96">
+                    <p className="text-muted-foreground">No data available</p>
+                  </div>
+                )}
+                <div className="mt-4 bg-muted/30 rounded-lg p-4">
+                  <p className="text-xs text-muted-foreground">
+                    <strong>Interpretation:</strong> Services with lower cost-to-revenue ratios are more efficient. Target ratio should be below 70% for healthy margins.
+                  </p>
+                </div>
+              </div>
+
+              {/* Payback Period Distribution */}
+              <div className="bg-card rounded-2xl shadow-sm border border-border p-6">
+                <div className="flex items-center justify-between mb-6">
+                  <h2 className="text-lg font-semibold text-foreground">Payback Period Distribution</h2>
+                  <p className="text-sm text-muted-foreground">By Service Type</p>
+                </div>
+                {paybackHistogramData.length > 0 ? (
+                  <ResponsiveContainer width="100%" height={350}>
+                    <BarChart data={paybackHistogramData} margin={{ top: 20, right: 30, left: 20, bottom: 20 }}>
+                      <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
+                      <XAxis
+                        dataKey="range"
+                        stroke="hsl(var(--muted-foreground))"
+                        fontSize={12}
+                      />
+                      <YAxis
+                        stroke="hsl(var(--muted-foreground))"
+                        label={{ value: "Project Count", angle: -90, position: "insideLeft" }}
+                      />
+                      <Tooltip formatter={(value) => [formatNumber(value), "Projects"]} />
+                      <Legend />
+                      <Bar dataKey="count" name="Project Count" fill="#3b82f6" radius={[8, 8, 0, 0]} />
+                    </BarChart>
+                  </ResponsiveContainer>
+                ) : (
+                  <div className="flex items-center justify-center h-96">
+                    <p className="text-muted-foreground">No data available</p>
+                  </div>
+                )}
+                <div className="mt-4 bg-muted/30 rounded-lg p-4">
+                  <p className="text-xs text-muted-foreground">
+                    <strong>Payback Period:</strong> Time taken to recover initial project costs through revenue. Shorter periods indicate faster cash flow recovery.
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            {/* NEW: Recovery Speed Analysis - MOVED TO END */}
+            {recoverySpeedData.length > 0 && (
+              <div className="bg-card rounded-2xl shadow-sm border border-border p-6 mb-8">
+                <div className="flex items-center justify-between mb-6">
+                  <h2 className="text-lg font-semibold text-foreground">Payment Recovery Speed Analysis</h2>
+                  <p className="text-sm text-muted-foreground">By Client Type</p>
+                </div>
+                
+                {/* Payment Milestone Waterfall */}
+                <ResponsiveContainer width="100%" height={400}>
+                  <LineChart data={paymentWaterfallData} margin={{ top: 20, right: 30, left: 60, bottom: 60 }}>
+                    <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
+                    <XAxis
+                      dataKey="stage"
+                      stroke="hsl(var(--muted-foreground))"
+                      fontSize={11}
+                    />
+                    <YAxis
+                      stroke="hsl(var(--muted-foreground))"
+                      label={{ value: "Payment %", angle: -90, position: "insideLeft", offset: 10 }}
+                    />
+                    <Tooltip content={<RecoveryTooltip />} />
+                    <Legend />
+                    <Line
+                      type="monotone"
+                      dataKey="percentage"
+                      name="Payment %"
+                      stroke="#3b82f6"
+                      strokeWidth={3}
+                      dot={{ fill: "#3b82f6", r: 5 }}
+                    />
+                    <Line
+                      type="monotone"
+                      dataKey="cumulative"
+                      name="Cumulative %"
+                      stroke="#8b5cf6"
+                      strokeWidth={2}
+                      strokeDasharray="5 5"
+                      dot={{ fill: "#8b5cf6", r: 4 }}
+                    />
+                  </LineChart>
+                </ResponsiveContainer>
+
+                {/* Recovery Speed Summary Cards */}
+                <div className="mt-6 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                  {recoverySpeedData.map((client) => (
+                    <div key={client.name} className="bg-muted/30 rounded-lg p-4 border border-border">
+                      <p className="text-sm font-semibold text-foreground mb-3">{client.name}</p>
+                      <div className="space-y-2 text-xs">
+                        <div className="flex justify-between items-center">
+                          <span className="text-muted-foreground">Upfront Payment:</span>
+                          <span className="font-bold text-blue-600">{formatPercentage(client.upfrontPayment, 0)}</span>
+                        </div>
+                        <div className="flex justify-between items-center">
+                          <span className="text-muted-foreground">Avg Completion:</span>
+                          <span className="font-medium">{client.avgDaysToCompletion} days</span>
+                        </div>
+                        <div className="flex justify-between items-center">
+                          <span className="text-muted-foreground">Payment Recovery:</span>
+                          <span className="font-medium">{client.avgPaymentRecovery} days</span>
+                        </div>
+                        <div className="flex justify-between items-center pt-2 border-t border-border">
+                          <span className="text-muted-foreground">Total Projects:</span>
+                          <span className="font-medium">{formatNumber(client.projectCount)}</span>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+
+                <div className="mt-6 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-4">
+                  <p className="text-sm font-semibold text-blue-900 dark:text-blue-100 mb-2">💡 Key Insights</p>
+                  <ul className="text-xs text-blue-800 dark:text-blue-200 space-y-1 list-disc list-inside">
+                    <li>Commercial clients typically pay higher upfront (40%) but take longer to complete projects</li>
+                    <li>Residential clients pay lower upfront (20%) but finish projects faster (6 weeks average)</li>
+                    <li>Monitor payment recovery days to optimize cash flow management</li>
+                  </ul>
+                </div>
+              </div>
+            )}
           </>
         )}
       </div>

@@ -109,6 +109,228 @@ export const getServiceProfitability = async () => {
 }
 
 /**
+ * Calculate Cost to Revenue Ratio and Payback Period by Service Type
+ * @param {Array} data - Service profitability data
+ * @returns {Array} Service types with cost-to-revenue ratio and payback period
+ */
+export const calculateCostToRevenueRatio = (data) => {
+  if (!data || !Array.isArray(data)) return []
+
+  console.log("=== CALCULATING COST TO REVENUE RATIO ===")
+  
+  const result = data.map(service => {
+    const revenue = service.total_revenue || 0
+    const cost = service.total_cost || 0
+    const avgRevenue = service.avg_revenue_per_project || 0
+    const avgCost = service.avg_cost_per_project || 0
+    
+    // Cost to Revenue Ratio (lower is better)
+    const costToRevenueRatio = revenue > 0 ? (cost / revenue) : 0
+    
+    // Payback Period in days (estimated based on avg project completion time)
+    // Assuming payment recovery days is available or use a default
+    const paybackPeriod = service.avg_days_to_completion || service.payment_recovery_days || 0
+    
+    return {
+      name: service.service_name || "Unknown",
+      costToRevenueRatio: costToRevenueRatio * 100, // Convert to percentage
+      paybackPeriod: paybackPeriod,
+      revenue: revenue,
+      cost: cost,
+      profit: service.total_profit || 0,
+      projectCount: service.project_count || 0,
+      avgRevenue: avgRevenue,
+      avgCost: avgCost
+    }
+  })
+
+  console.log("Cost to Revenue Ratio calculated:", result.length, "services")
+  
+  return result.sort((a, b) => a.costToRevenueRatio - b.costToRevenueRatio)
+}
+
+/**
+ * Prepare Payback Period Distribution Data for Histogram
+ * @param {Array} data - Service profitability data
+ * @returns {Array} Histogram data with payback period ranges
+ */
+export const preparePaybackPeriodHistogram = (data) => {
+  if (!data || !Array.isArray(data)) return []
+
+  console.log("=== PREPARING PAYBACK PERIOD HISTOGRAM ===")
+
+  // Define payback period ranges (in days)
+  const ranges = [
+    { label: "0-30 days", min: 0, max: 30, count: 0, services: [] },
+    { label: "31-60 days", min: 31, max: 60, count: 0, services: [] },
+    { label: "61-90 days", min: 61, max: 90, count: 0, services: [] },
+    { label: "91-120 days", min: 91, max: 120, count: 0, services: [] },
+    { label: "120+ days", min: 121, max: Infinity, count: 0, services: [] }
+  ]
+
+  data.forEach(service => {
+    const paybackPeriod = service.avg_days_to_completion || service.payment_recovery_days || 0
+    
+    const range = ranges.find(r => paybackPeriod >= r.min && paybackPeriod <= r.max)
+    if (range) {
+      range.count += service.project_count || 1
+      range.services.push(service.service_name || "Unknown")
+    }
+  })
+
+  console.log("Payback period distribution:", ranges)
+
+  return ranges.map(r => ({
+    range: r.label,
+    count: r.count,
+    services: r.services.join(", ")
+  }))
+}
+
+/**
+ * Calculate Recovery Speed Analysis by Client Type
+ * @param {Array} data - Service profitability data
+ * @returns {Array} Client type payment milestone data
+ */
+export const calculateRecoverySpeedAnalysis = (data) => {
+  if (!data || !Array.isArray(data)) return []
+
+  console.log("=== CALCULATING RECOVERY SPEED ANALYSIS ===")
+  console.log("First service record:", data[0])
+
+  const clientTypeMap = {}
+
+  data.forEach(service => {
+    // Try multiple possible field names for client type
+    const clientType = service.client_type || service.clientType || service.client_name || "Unknown"
+    
+    if (!clientTypeMap[clientType]) {
+      clientTypeMap[clientType] = {
+        clientType: clientType,
+        totalRevenue: 0,
+        totalProjects: 0,
+        totalDaysToCompletion: 0,
+        totalPaymentRecovery: 0,
+        services: []
+      }
+    }
+
+    const projects = service.project_count || 1
+    clientTypeMap[clientType].totalRevenue += service.total_revenue || 0
+    clientTypeMap[clientType].totalProjects += projects
+    
+    // Try multiple possible field names for days to completion
+    const daysToCompletion = service.avg_days_to_completion || 
+                             service.days_to_completion || 
+                             service.avgDaysToCompletion || 
+                             0
+    
+    // Try multiple possible field names for payment recovery
+    const paymentRecovery = service.payment_recovery_days || 
+                           service.paymentRecoveryDays || 
+                           service.avg_payment_recovery_days ||
+                           0
+    
+    clientTypeMap[clientType].totalDaysToCompletion += daysToCompletion * projects
+    clientTypeMap[clientType].totalPaymentRecovery += paymentRecovery * projects
+    clientTypeMap[clientType].services.push(service.service_name)
+  })
+
+  console.log("Client Type Map:", clientTypeMap)
+
+  const result = Object.values(clientTypeMap).map(ct => {
+    const avgDaysToCompletion = ct.totalProjects > 0 
+      ? ct.totalDaysToCompletion / ct.totalProjects 
+      : 0
+    
+    const avgPaymentRecovery = ct.totalProjects > 0
+      ? ct.totalPaymentRecovery / ct.totalProjects
+      : 0
+
+    // Estimate payment milestones (simplified model)
+    // Commercial: Higher upfront, slower completion
+    // Residential: Lower upfront, faster completion
+    const isCommercial = ct.clientType.toLowerCase().includes("commercial")
+    const upfrontPercent = isCommercial ? 40 : 20
+    const progressPercent = isCommercial ? 30 : 40
+    const finalPercent = 100 - upfrontPercent - progressPercent
+
+    return {
+      name: ct.clientType,
+      upfrontPayment: upfrontPercent,
+      progressPayment: progressPercent,
+      finalPayment: finalPercent,
+      avgDaysToCompletion: Math.round(avgDaysToCompletion),
+      avgPaymentRecovery: Math.round(avgPaymentRecovery),
+      totalRevenue: ct.totalRevenue,
+      projectCount: ct.totalProjects,
+      // Calculate cumulative payment percentages for waterfall
+      milestone1: upfrontPercent,
+      milestone2: upfrontPercent + progressPercent,
+      milestone3: 100
+    }
+  })
+
+  console.log("Recovery speed analysis result:", result)
+
+  return result.sort((a, b) => b.totalRevenue - a.totalRevenue)
+}
+
+/**
+ * Prepare Payment Milestone Waterfall Data
+ * @param {Array} recoveryData - Recovery speed analysis data
+ * @returns {Array} Waterfall chart data showing payment progression
+ */
+export const preparePaymentWaterfallData = (recoveryData) => {
+  if (!recoveryData || !Array.isArray(recoveryData)) return []
+
+  console.log("=== PREPARING PAYMENT WATERFALL DATA ===")
+
+  const waterfallData = []
+
+  recoveryData.forEach(client => {
+    // Project Start (0%)
+    waterfallData.push({
+      stage: `${client.name} - Start`,
+      percentage: 0,
+      clientType: client.name,
+      milestone: "Project Start"
+    })
+
+    // Upfront Payment
+    waterfallData.push({
+      stage: `${client.name} - Upfront`,
+      percentage: client.upfrontPayment,
+      clientType: client.name,
+      milestone: "Upfront Payment",
+      cumulative: client.milestone1
+    })
+
+    // Progress Payment
+    waterfallData.push({
+      stage: `${client.name} - Progress`,
+      percentage: client.progressPayment,
+      clientType: client.name,
+      milestone: "Progress Payment",
+      cumulative: client.milestone2
+    })
+
+    // Final Payment
+    waterfallData.push({
+      stage: `${client.name} - Final`,
+      percentage: client.finalPayment,
+      clientType: client.name,
+      milestone: "Final Payment",
+      cumulative: client.milestone3
+    })
+  })
+
+  console.log("Payment waterfall data:", waterfallData)
+
+  return waterfallData
+}
+
+/**
  * Simple K-Means clustering implementation for project data
  * @param {Array} data - Project data with metrics
  * @param {number} k - Number of clusters (default: 3)
@@ -642,25 +864,4 @@ export const exportToCSV = (data) => {
 export const getTopMaterialCostDrivers = (data) => {
   if (!data || !Array.isArray(data)) return []
   return data.filter((item) => item.cumulative_percentage && item.cumulative_percentage <= 80)
-}
-
-export default {
-  getServiceProfitability,
-  performKMeansClustering,
-  prepareClusteringChartData,
-  getClusterSummary,
-  formatCurrency,
-  formatPercentage,
-  formatNumber,
-  getTopServices,
-  calculateTotalMetrics,
-  getParetoServices,
-  prepareChartData,
-  calculateClientTypeProfitability,
-  formatMaterialParetoChartData,
-  getTopMaterialCostDrivers,
-  getMaterialCostPareto,
-  prepareParetoChartData,
-  getTopCostDrivers,
-  exportToCSV,
 }
