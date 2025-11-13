@@ -1,45 +1,40 @@
-import { LayoutDashboard, FileInput, ChartColumnStacked, TrendingUp, FolderOpen, BarChart3 } from "lucide-react";
+import { Zap } from "lucide-react";
 
 const navItems = [
-  { icon: LayoutDashboard, label: "Overview", page: "overview", badge: true },
-  { icon: FileInput, label: "Project Input", page: "project-input" },
-  { icon: ChartColumnStacked, label: "Analytics Results", page: "analytics" },
-  { icon: BarChart3, label: "QuickSight", page: "quicksight" },
-  { icon: TrendingUp, label: "KPI Benchmarking", page: "kpi" },
-  { icon: FolderOpen, label: "Project Drilldown", page: "drilldown" },
+  { label: "Executive Summary", page: "overview" },
+  { label: "Project Simulator & Historical Insight", page: "project-input" },
+  { label: "Cash Flow", page: "analytics" },
+  { label: "Vendor & Client Ledger", page: "quicksight" },
+  { label: "Project Drilldown", page: "drilldown" },
 ];
 
 export default function Sidebar({ currentPage, onPageChange }) {
   return (
-    <aside className="w-64 bg-[#f8f9fa] min-h-screen flex flex-col p-6">
+    <aside className="w-64 bg-[#e8e8e8] min-h-screen flex flex-col p-6">
       {/* Logo */}
-      <div className="mb-8">
-        <img 
-          src="/powerd-logo.png" 
-          alt="Power D's Electrical Services" 
-          className="w-full h-auto max-w-[200px]"
-        />
+      <div className="mb-8 flex items-center gap-3">
+        <div className="w-12 h-12 bg-yellow-400 rounded-full flex items-center justify-center flex-shrink-0">
+          <Zap className="w-7 h-7 text-gray-900" fill="currentColor" />
+        </div>
+        <div>
+          <div className="text-lg font-bold text-gray-900 leading-tight">Power D's</div>
+          <div className="text-sm text-orange-600 font-medium leading-tight">Electrical Services</div>
+        </div>
       </div>
 
       {/* Navigation */}
       <nav className="flex-1 space-y-2">
         {navItems.map((item) => (
           <button
-            key={item.label}
+            key={item.page}
             onClick={() => onPageChange(item.page)}
-            className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg text-left transition-colors ${
+            className={`w-full px-4 py-3 rounded-lg text-left text-sm transition-colors ${
               currentPage === item.page
-                ? "bg-blue-100 text-blue-900 font-medium"
-                : "text-gray-700 hover:bg-gray-100"
+                ? "bg-gray-300 text-gray-900 font-medium"
+                : "text-gray-700 hover:bg-gray-200"
             }`}
           >
-            <item.icon className="w-5 h-5" />
-            <span className="flex-1">{item.label}</span>
-            {item.badge && currentPage === item.page && (
-              <span className="w-5 h-5 bg-red-500 text-white text-xs flex items-center justify-center rounded-full">
-                1
-              </span>
-            )}
+            {item.label}
           </button>
         ))}
       </nav>

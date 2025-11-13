@@ -32,7 +32,7 @@ const App = () => {
   };
 
   return (
-    <div className="flex min-h-screen bg-[#fde297]">
+    <div className="flex min-h-screen bg-[#eeeeee]">
       <Sidebar currentPage={currentPage} onPageChange={setCurrentPage} />
       <main className="flex-1 p-8">
         {renderPage()}
